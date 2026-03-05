@@ -8,8 +8,6 @@ on:
       - "database/**"
   pull_request:
     branches: [main]
-    paths:
-      - "database/**"
 
 jobs:
   deploy:
