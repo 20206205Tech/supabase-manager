@@ -2,14 +2,21 @@ name: Supabase Deployment
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Chọn môi trường để deploy"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prd
   push:
     branches: [main]
-    paths:
-      - "database/**"
+    paths: ["database/**"]
   pull_request:
     branches: [main]
-    paths:
-      - "database/**"
+    paths: ["database/**"]
 
 jobs:
   deploy:
@@ -29,18 +36,27 @@ jobs:
         with:
           version: latest
 
-      - name: Deploy dựa trên Branch
+      - name: Deploy dựa trên Branch hoặc Input
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          # 1. Kiểm tra nếu có input từ workflow_dispatch
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            CONFIG="${{ github.event.inputs.environment }}"
+          # 2. Nếu là push/pr vào main thì chọn prd
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             CONFIG="prd"
+          # 3. Mặc định là dev
           else
             CONFIG="dev"
           fi
 
-          echo "Đang lấy secrets từ config: $CONFIG"
+          echo "CONFIG_SELECTED=$CONFIG" >> $GITHUB_ENV
+          echo "Đang sử dụng cấu hình: $CONFIG"
 
+      - name: Execute Supabase Commands
+        run: |
           doppler run -p 20206205tech -c $CONFIG -- supabase link --project-ref "$SUPABASE_PROJECT_ID"
           doppler run -p 20206205tech -c $CONFIG -- supabase db push
           doppler run -p 20206205tech -c $CONFIG -- supabase migration list
         env:
           DOPPLER_TOKEN: ${{ secrets.DOPPLER_TOKEN }}
+          CONFIG: ${{ env.CONFIG_SELECTED }}
